@@ -328,7 +328,7 @@ async def change_link(message: types.Message, state: FSMContext):
 
 
 async def text_filter(text):
-    
+    pass
 
 @dp.message_handler(content_types=['text'])
 async def process_help_command(message: types.Message):
