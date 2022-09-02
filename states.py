@@ -26,4 +26,8 @@ class Script(StatesGroup):
 
 
 class My_link(StatesGroup):
-     link = State()
+    link = State()
+
+
+class My_Username(StatesGroup):
+    username = State()

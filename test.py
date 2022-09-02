@@ -6,16 +6,39 @@ URL_REGEX = r"""(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|
 def filter(text):
     result = text
 
+    # Replace with scripts
     f = open('replace_scripts.json', 'r')
-    scripts= json.loads(f.read())
+    scripts = json.loads(f.read())
     f.close()
+    script_news = []
     # print(scripts)
     for old, new in scripts:
         result = result.replace(old, new)
         result = result.replace(old.lower(), new)
         result = result.replace(old.upper(), new)
         result = result.replace(old.capitalize(), new)
+        script_news.append(new)
 
+        
+    # Replace static username
+    f = open('my_username.txt', 'r')
+    username = f.read().strip()
+    f.close()
+
+    print(result)
+    
+    usernames = re.findall(r'@\w+', result)
+    for old_name in usernames:
+
+        if old_name in script_news or old_name[1:] in script_news:
+            print('yes')
+        else:
+            print('no')
+            # print(result)
+            result = result.replace(old_name[1:], username, 1)
+
+
+    # Replace links
     links = re.findall(URL_REGEX, text)
     # print(f'{links=}')
 
@@ -27,20 +50,18 @@ def filter(text):
     for link in links:
         if link[0:12] != 'https://t.me':
             result = result.replace(link, my_link)
-    print(result)
+    print(result) 
 
-
-    
 
 text = '''Hello @user, link https://example.com, view (https://google.com/) 
-Hello @ewrwer http://not-secure.com 
+Hello  http://not-secure.com 
 TG: https://t.me/qwerty
-USERS: @django @python @fjasklfa
+USERS: @django @python @fjasklfa @ewrwer
 123423142314'''
 
-print(re.findall(r'@\w+', text))
+# print(re.findall(r'@\w+', text))
 
-# filter(text)
+filter(text)
 # # print(dir('affds'))
 # print('qweRty'.lower())
 # print('qweRty'.upper())
