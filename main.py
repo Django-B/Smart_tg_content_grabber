@@ -26,12 +26,12 @@ for chat in chats1:
 
 
 
-api_id = config.api_id
-api_hash = config.api_hash
 f = open('my_chat.txt', 'r')
 forward_chat = int(f.read().strip().split('|')[0])
 f.close()
 # print(forward_chat)
+api_id = config.api_id
+api_hash = config.api_hash
 session_name = 'session'
 
 

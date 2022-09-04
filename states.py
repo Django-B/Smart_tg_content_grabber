@@ -31,3 +31,10 @@ class My_link(StatesGroup):
 
 class My_Username(StatesGroup):
     username = State()
+
+
+class History(StatesGroup):
+    link = State()
+    count = State()
+    iter_count = State()
+    sleep = State()

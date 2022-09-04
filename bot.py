@@ -6,6 +6,8 @@ from aiogram.dispatcher import FSMContext
 import json
 import re
 from states import *
+import os
+# import subprocess
 
 import config
 
@@ -350,8 +352,83 @@ async def change_link(message: types.Message, state: FSMContext):
     f.close()
 
 
-# @dp.message_handler(state='*', commands=['change_my_username'])
-# async def change_link(message: types.Message):
+history_status = False
+@dp.message_handler(state='*', commands=['copy_history'])
+async def history(message: types.Message):
+    global history_status
+    if not message.chat.username in access_users or history_status:
+        await message.answer('Уже выполняется копирование истории')
+        return
+    history_status = True
+
+
+    await History.link.set()
+
+    await message.answer('Отправьте ссылку на канал')
+@dp.message_handler(state=History.link)
+async def history(message: types.Message, state: FSMContext):
+    if message.text == '.':
+        await state.finish()
+        await message.answer('Отмена')
+
+    async with state.proxy() as data:
+        data['link'] = message.text
+    
+    await History.count.set()
+    await message.answer('Отправьте количество сообщений, которые нужно скопировать(максимум 100)')
+@dp.message_handler(state=History.count)
+async def history(message: types.Message, state: FSMContext):
+    if message.text == '.' or not message.text.isdigit():
+        await state.finish()
+        await message.answer('Отмена')
+    
+    async with state.proxy() as data:
+        data['count'] = int(message.text)
+    
+    await History.iter_count.set()
+    await message.answer('Отправьте количество циклов копирования сообщений(-1 = бесконечно)')
+@dp.message_handler(state=History.iter_count)
+async def history(message: types.Message, state: FSMContext):
+    if message.text == '.' or not message.text.isdigit():
+        await state.finish()
+        await message.answer('Отмена')
+
+    async with state.proxy() as data:
+        data['iter_count'] = int(message.text)
+
+    await History.sleep.set()
+    await message.answer('Отправьте время задержки между копированием сообщений(в минутах)')
+@dp.message_handler(state=History.sleep)
+async def history(message: types.Message, state: FSMContext):
+    global history_status
+    if message.text == '.' or not message.text.isdigit():
+        await state.finish()
+        await message.answer('Отмена')
+
+    async with state.proxy() as data:
+        data['sleep'] = int(message.text)
+
+    info = {
+        'link': data['link'],
+        'count': data['count'],
+        'iter_count': data['iter_count'],
+        'sleep': data['sleep']
+    }
+
+    f = open('history.json', 'w')
+    f.write(json.dumps(info))
+    f.close()
+
+    history_status = False
+    os.system('python3 test.py &')
+
+    await state.finish()
+    await message.answer('Бот начал копирование истории')
+
+    
+
+    
+
 
 
 async def text_filter(text):
@@ -412,7 +489,7 @@ async def process_help_command(message: types.Message):
     if config.code not in message.text:
         return
 
-    text = await text_filter(message.text)
+    text = await text_filter(message.text[:-len(config.code)])
     
     # await bot.copy_message(chat_id=my_chat, from_chat_id='django_999', message_id=message.message_id)
     # await bot.forward_message(chat_id=my_chat, from_chat_id=my_chat, message_id=message.message_id)
@@ -427,10 +504,16 @@ async def process_help_command(message: types.Message):
 
     text = await text_filter(message.caption)
 
-    await bot.send_photo(my_chat, message.photo[0].file_id ,caption=text)
-
+    await bot.send_photo(my_chat, message.photo[0].file_id ,caption=text[:-len(config.code)])
+                                                                                                                                                                                                   
 
 if __name__ == '__main__':
     print('Start')
+    os.system('python3 main.py &')
+    # output = subprocess.check_output(['python3', 'main.py', '&'])
     executor.start_polling(dp)
+
+    # print(os.popen('ps').read())
+    
+        
 
