@@ -75,3 +75,4 @@ async def normal_handler(event):
 
 
 client.run_until_disconnected()
+client.disconnect()

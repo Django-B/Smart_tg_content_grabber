@@ -1,5 +1,11 @@
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
+
+class Link_Script(StatesGroup):
+    add_link = State()
+    del_link = State()
+
+
 class Add_Target(StatesGroup):
     forwarded = State()
 

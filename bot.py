@@ -68,6 +68,93 @@ async def process_start_command(message: types.Message):
         return
     await message.reply("Привет!", reply=False)
 
+@dp.message_handler(commands=['test'])
+async def test(message: types.Message):
+    await message.answer('<a href="https://vk.com/id41732290">VK</a>', parse_mode='HTML')
+
+
+
+@dp.message_handler(state='*', commands=['add_link_script'])
+async def add_link(message: types.Message):
+    if not message.from_user.username in access_users:
+        return
+    
+    await Link_Script.add_link.set()
+    await message.answer('Отправьте шаблон для замены в таком формате:\nСЛОВО C CCЫЛКОЙ|НА ЧТО НУЖНО ЗАМЕНЯТЬ|ССЫЛКА НА КОТОРУЮ НУЖНО МЕНЯТЬ')
+
+@dp.message_handler(state=Link_Script.add_link)
+async def add_link(message: types.Message, state: FSMContext):
+    if '|' not in message.text or len(message.text.split('|')) != 3:
+        await state.finish()
+        await message.answer('Отмена')
+        return    
+    f = open('entities.json', 'r')
+    links = json.loads(f.read())
+    f.close()
+
+    links.append(message.text.strip())
+
+    print(links)
+
+    f = open('entities.json', 'w')
+    f.write(json.dumps(links))
+    f.close()
+
+    await state.finish()
+    await message.answer('Добавлен новый шаблонов.\nСписок шаблонов: /link_scripts_list')
+
+@dp.message_handler(state='*', commands=['del_link_script'])
+async def add_link(message: types.Message):
+    if not message.chat.username in access_users:
+        return
+
+    f = open('entities.json', 'r')
+    links = json.loads(f.read())
+    f.close()
+    print(links)
+    list_ = []
+    for i in range(len(links)):
+        list_.append('{}) {}'.format(i, links[i]))
+    list_ = await nice_list(list_,'\n')
+
+    await Link_Script.del_link.set()
+    await message.answer(f'Выберите номер шаблона для удаления:\n{list_}')
+@dp.message_handler(state=Link_Script.del_link)
+async def del_link(message: types.Message, state: FSMContext):
+    if not message.text.isdigit() or int(message.text) < 0:
+        await state.finish()
+        await message.answer('Отмена')
+        return
+
+    f = open('entities.json', 'r')
+    list_ = json.loads(f.read())
+    f.close()
+    if int(message.text) >= len(list_):
+        await state.finish()
+        await message.answer('Некорректный ввод :/')
+        return
+
+    # print(list_[int(message.text)])
+    popped = list_.pop(int(message.text))
+
+    f = open('entities.json', 'w')
+    f.write(json.dumps(list_))
+    f.close()
+
+    await state.finish()
+    await message.answer(f'Шаблон {popped} удален.\nПосмотреть список шаблонов: /link_scripts_list')
+
+@dp.message_handler(commands=['link_scripts_list'])
+async def add_link(message: types.Message):
+    f = open('entities.json', 'r')
+    links = json.loads(f.read())
+    f.close()
+
+    view_list = await nice_list(links, '\n')
+
+    await message.answer(f'Список шаблонов:\n{view_list}')
+
+
 
 @dp.message_handler(state='*', commands=['add_target'])
 async def add_target(message: types.Message):
@@ -427,14 +514,65 @@ async def history(message: types.Message, state: FSMContext):
 
     
 
+async def ent_change(text, entities=[], templates=[]):
+    # replace text and link
+    if not entities:
+        return text
+
+    # templates = ['200|3000|https://olim.bek', '500|BONUS|https://olim2.bek']
+
+    # text = 'Всем привет, новый бонус 200 или 500'
+    # entities = [
+    #     {"type": "text_link", "offset": 25, "length": 3, "url": "http://1.bet/"},
+    #     {"type": "text_link",  "offset": 33, "length": 3, "url": "http://1.bet/"}
+    # ]
+    a = '<a href="{}">'
+    b = '</a>'
+
+    new_text = text
+
+    addition = 0        
+    status = False
+    for ent in entities:
+        if ent['type'] != 'text_link':
+            continue
+        offset = ent['offset']
+        length = ent['length']
+        txt = text[offset:offset+length]
+        if status:
+            offset += addition
+            length += addition
+            txt = new_text[offset:offset+length]
+        for temp in templates:
+            splt = temp.split('|')
+
+            if splt[0] == txt:
+                start = text[:offset]
+                end = text[offset+length:]
+                if status:
+                    start = new_text[:offset]
+                    end = new_text[offset+length:]
+
+                
+                addition+=len(a.format(splt[2]))
+                addition+=len(b)
+                addition+=len(splt[1])-len(txt)
+                start = start + a.format(splt[2]) + splt[1] + b + end
+
+                new_text = start
+
+                status = True
     
+    print('"'+new_text+'"')
+    return new_text
 
 
 
-async def text_filter(text):
+async def text_filter(text, entities=[], templates=[]):
     URL_REGEX = r"""(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:\'\".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))"""
 
     result = text
+    result = await ent_change(result, entities, templates)
 
     # Replace with scripts
     f = open('replace_scripts.json', 'r')
@@ -486,30 +624,54 @@ async def text_filter(text):
 async def process_help_command(message: types.Message):
     print(message)
 
+    # if 'entities' in message:
+    #     print(type(message.entities[0]))
+    #     print(message.entities)
+
     if config.code not in message.text:
         return
-
-    text = await text_filter(message.text[:-len(config.code)])
     
-    # await bot.copy_message(chat_id=my_chat, from_chat_id='django_999', message_id=message.message_id)
-    # await bot.forward_message(chat_id=my_chat, from_chat_id=my_chat, message_id=message.message_id)
-    await bot.send_message(my_chat, text)
+    if 'entities' in message:
+        f = open('entities.json', 'r')
+        templates1 = json.loads(f.read())
+        f.close()
+        templates = []
+        for template in templates1:
+            templates.append(template.strip())
+
+        print(templates)
+        text = await text_filter(message.text[:-len(config.code)], message.entities, templates)
+    else:
+        text = await text_filter(message.text[:-len(config.code)])
+
+    await bot.send_message(my_chat, text, parse_mode='HTML')
     
 @dp.message_handler(content_types=['photo'])
 async def process_help_command(message: types.Message):
     print(message)
 
+
     if config.code not in message.caption:
         return
+    
+    if 'caption_entities' in message:
+        f = open('entities.json', 'r')
+        templates1 = json.loads(f.read())
+        f.close()
+        templates = []
+        for template in templates1:
+            templates.append(template.strip())
 
-    text = await text_filter(message.caption)
+        text = await text_filter(message.caption, message.caption_entities, templates)
+    else:
+        text = await text_filter(message.caption)
 
-    await bot.send_photo(my_chat, message.photo[0].file_id ,caption=text[:-len(config.code)])
+    await bot.send_photo(my_chat, message.photo[0].file_id ,caption=text[:-len(config.code)], parse_mode='HTML')
                                                                                                                                                                                                    
 
 if __name__ == '__main__':
     print('Start')
-    os.system('python3 main.py &')
+    # os.system('python3 main.py &')
     # output = subprocess.check_output(['python3', 'main.py', '&'])
     executor.start_polling(dp)
 
